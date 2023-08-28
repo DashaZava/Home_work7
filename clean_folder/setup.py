@@ -9,8 +9,7 @@ setup(
     url='https://github.com/DashaZava/Home_work7',
     license='MIT',
     packages=['clean_folder'],
-    include_package_data=True,
     entry_points={
-        'console_scripts': ['clean-folder = clean_folder.clean:main', 'fill-files = clean_folder.files_generator:file_generator']
+        'console_scripts': ['clean-folder = clean_folder.clean:main']
     }
 )
