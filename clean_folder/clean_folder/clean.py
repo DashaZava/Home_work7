@@ -1,103 +1,117 @@
+import sys
 import os
 import shutil
-import zipfile
+from threading import Thread
 
-# Функция для нормализации имени файла
+IMAGES_TYPE = ['jpeg', 'png', 'jpg', 'svg']
+VIDEO_TYPE = ['avi', 'mp4', 'mov', 'mkv']
+AUDIO_TYPE = ['mp3', 'ogg', 'wav', 'amr']
+DOCUMENTS_TYPE = ['doc', 'docx', 'txt', 'pdf', 'xlsx', 'pptx']
+ARCHIVES_TYPE = ['zip', 'gz', 'tar']
+FOLDER_EXEPTION = ['image', 'video', 'audio', 'documents', 'archives']
+
+CYRILLIC = "абвгдеёжзийклмнопрстуфхцчшщъыьэюяєіїґ"
+LATIN = ("a", "b", "v", "g", "d", "e", "e", "j", "z", "i", "j", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u",
+         "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "u", "ja", "je", "ji", "g")
+
+TRANS = {}
+
+for c, l in zip(CYRILLIC, LATIN):
+    TRANS[ord(c)] = l
+    TRANS[ord(c.upper())] = l.upper()
 
 
-def normalize(name):
-    # Транслитерация кириллических символов и замена неподходящих символов на "_"
-    normalized_name = []
-    for char in name:
-        if char.isalpha() or char.isdigit() or char == ' ':
-            normalized_name.append(char)
+def translate_file(name):
+    return name.translate(TRANS)
+
+class SortingThread(Thread):
+
+    def __init__(self, files, base_folder,  root, ):
+        super().__init__()
+        self.files = files
+        self.base_folder = base_folder
+        self.root = root
+
+    def run(self):
+        
+        for name in self.files:
+
+                file_name = name.split('.')
+                new_file_name = normalize(file_name[0], file_name[1])
+                
+                if file_name[1] in IMAGES_TYPE:
+                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[0], self.root, name, new_file_name)
+                elif file_name[1] in VIDEO_TYPE:
+                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[1], self.root, name, new_file_name)
+                elif file_name[1] in AUDIO_TYPE:
+                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[2], self.root, name, new_file_name)
+                elif file_name[1] in DOCUMENTS_TYPE:
+                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[3], self.root, name, new_file_name)
+                elif file_name[1] in ARCHIVES_TYPE:
+                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[4], self.root, name, new_file_name)
+                    
+                    shutil.unpack_archive(f'{self.base_folder}\\archives\\{new_file_name}',
+                                        f'{self.base_folder}\\archives\\{file_name[0]}')
+                    os.remove(f'{self.base_folder}\\{FOLDER_EXEPTION[4]}\\{new_file_name}')
+                else:
+                    create_folder_and_replace_file(self.base_folder, 'other', self.root, name, new_file_name)
+ 
+
+def main(base_folder):
+
+    for root, dirs, files in os.walk(base_folder):
+        
+        if os.path.basename(root) in FOLDER_EXEPTION:
+            return
         else:
-            normalized_name.append('_')
-    return ''.join(normalized_name)
+            SortingThread(files, base_folder, root).start()
 
-# Функция для обработки файлов разных типов
+    delete_empty_folder(base_folder)        
+    
 
 
-def process_file(file_path, destination_folder):
-    _, ext = os.path.splitext(file_path)
-    # Убираем точку из расширения и переводим в верхний регистр
-    ext = ext[1:].upper()
+def delete_empty_folder(base_folder):
+    try:
+        for root, dirs, files in os.walk(base_folder):
+            if os.listdir(root):
+                continue
+            else:
+                os.rmdir(root)
 
-    if ext in ['JPEG', 'PNG', 'JPG', 'SVG']:
-        dest_folder = os.path.join(destination_folder, 'images')
-    elif ext in ['AVI', 'MP4', 'MOV', 'MKV']:
-        dest_folder = os.path.join(destination_folder, 'video')
-    elif ext in ['DOC', 'DOCX', 'TXT', 'PDF', 'XLSX', 'PPTX']:
-        dest_folder = os.path.join(destination_folder, 'documents')
-    elif ext in ['MP3', 'OGG', 'WAV', 'AMR']:
-        dest_folder = os.path.join(destination_folder, 'audio')
-    elif ext in ['ZIP', 'GZ', 'TAR']:
-        dest_folder = os.path.join(destination_folder, 'archives', os.path.splitext(
-            os.path.basename(file_path))[0])
-        # Распаковка архива
-        with zipfile.ZipFile(file_path, 'r') as zip_ref:
-            zip_ref.extractall(dest_folder)
-        return  # Не перемещаем распакованные файлы
+        return delete_empty_folder(base_folder)
+    except RecursionError:
+        return
+
+
+def create_folder_and_replace_file(base_folder, folder_name, root, name, new_file_name):
+    if os.path.isdir(f'{base_folder}\\{folder_name}'):
+        os.replace(f'{root}\\{name}', f'{base_folder}\\{folder_name}\\{new_file_name}')
     else:
-        dest_folder = os.path.join(destination_folder, 'unknown')
-
-    # Создаем папку назначения, если ее нет
-    os.makedirs(dest_folder, exist_ok=True)
-
-    # Имя файла после нормализации
-    normalized_file_name = normalize(
-        os.path.splitext(os.path.basename(file_path))[0])
-    new_file_path = os.path.join(dest_folder, f"{normalized_file_name}{ext}")
-
-    # Перемещение файла
-    shutil.move(file_path, new_file_path)
-
-# Функция для обработки папки
+        os.mkdir(f'{base_folder}\\{folder_name}')
+        os.replace(f'{root}\\{name}', f'{base_folder}\\{folder_name}\\{new_file_name}')
 
 
-def process_folder(folder_path):
-    for root, _, files in os.walk(folder_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            process_file(file_path, folder_path)
-        # Удаление пустых папок
-        if not os.listdir(root):
-            os.rmdir(root)
+def normalize(file_name, file_extension):
+    chars = ' ()!?,./|@^%&*'
+    tran_file_name = translate_file(file_name)
+    for sym in chars:
+        tran_file_name = tran_file_name.replace(sym, '_')
 
-# Основная функция
+    return f'{tran_file_name}.{file_extension}'
 
 
-def main(source_folder):
-    # Создаем папку для архивов, если ее нет
-    archives_folder = os.path.join(source_folder, "archives")
-    os.makedirs(archives_folder, exist_ok=True)
+if __name__ == '__main__':
+    if len(sys.argv) == 1:
 
-    # Получаем список всех файлов и папок в указанной директории
-    items = os.listdir(source_folder)
+        print(f'Clean this folder => {os.getcwd()} ?')
 
-    # Обрабатываем каждый элемент (файл или папку)
-    for item in items:
-        item_path = os.path.join(source_folder, item)
-        if os.path.isfile(item_path):
-            process_file(item_path, source_folder)
-        elif os.path.isdir(item_path) and item not in ["archives", "video", "audio", "documents", "images"]:
-            process_folder(item_path)
+        answ = input('Y/n =>  ').lower()
 
+        if answ == 'y':
 
-# Если скрипт запущен как отдельный файл
-if __name__ == "__main__":
-    import sys
-
-    # Проверяем количество аргументов командной строки
-    if len(sys.argv) != 2:
-        print("Usage: python sort.py /path/to/folder")
-        sys.exit(1)
-
-    source_folder = sys.argv[1]
-
-    # Проверяем, существует ли указанная папка
-    if not os.path.exists(source_folder):
-        print("Source folder does not exist.")
-        sys.exit(1)
-
-    main(source_folder)
+            main(os.getcwd())
+        else:
+            print('Try again ...')
+    else:
+        print(f'Start clean this folder => {sys.argv[1]}')
+        main(sys.argv[1])
