@@ -3,6 +3,7 @@ import os
 import shutil
 from threading import Thread
 
+
 IMAGES_TYPE = ['jpeg', 'png', 'jpg', 'svg']
 VIDEO_TYPE = ['avi', 'mp4', 'mov', 'mkv']
 AUDIO_TYPE = ['mp3', 'ogg', 'wav', 'amr']
@@ -58,17 +59,13 @@ class SortingThread(Thread):
  
 
 def main(base_folder):
-
     for root, dirs, files in os.walk(base_folder):
-        
         if os.path.basename(root) in FOLDER_EXEPTION:
             return
         else:
             SortingThread(files, base_folder, root).start()
 
-    delete_empty_folder(base_folder)        
-    
-
+    delete_empty_folder(base_folder)
 
 def delete_empty_folder(base_folder):
     try:
@@ -77,11 +74,9 @@ def delete_empty_folder(base_folder):
                 continue
             else:
                 os.rmdir(root)
-
         return delete_empty_folder(base_folder)
     except RecursionError:
         return
-
 
 def create_folder_and_replace_file(base_folder, folder_name, root, name, new_file_name):
     if os.path.isdir(f'{base_folder}\\{folder_name}'):
@@ -90,28 +85,24 @@ def create_folder_and_replace_file(base_folder, folder_name, root, name, new_fil
         os.mkdir(f'{base_folder}\\{folder_name}')
         os.replace(f'{root}\\{name}', f'{base_folder}\\{folder_name}\\{new_file_name}')
 
-
 def normalize(file_name, file_extension):
     chars = ' ()!?,./|@^%&*'
     tran_file_name = translate_file(file_name)
     for sym in chars:
         tran_file_name = tran_file_name.replace(sym, '_')
-
     return f'{tran_file_name}.{file_extension}'
 
-
-if __name__ == '__main__':
+def main_entry_point():
     if len(sys.argv) == 1:
-
         print(f'Clean this folder => {os.getcwd()} ?')
-
         answ = input('Y/n =>  ').lower()
-
         if answ == 'y':
-
             main(os.getcwd())
         else:
             print('Try again ...')
     else:
         print(f'Start clean this folder => {sys.argv[1]}')
         main(sys.argv[1])
+
+if __name__ == '__main__':
+    main_entry_point()
