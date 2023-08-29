@@ -1,108 +1,125 @@
-import sys
-import os
-import shutil
-from threading import Thread
+import sys, os, shutil
+
+pictures = ['.JPEG', '.PNG', '.JPG', '.SVG']
+videos =['.AVI', '.MP4', '.MOV', '.MKV']
+documents = ['.DOC', '.DOCX', '.TXT', '.PDF', '.XLSX', '.PPTX']
+audio = ['.MP3', '.OGG', '.WAV', '.AMR']
+archives = ['.ZIP', '.GZ', '.TAR']
+
+transliteration_table = {
+    "А": "A", "Б": "B", "В": "V", "Г": "G", "Д": "D", "Е": "E", "Ё": "E", "Ж": "ZH",
+    "З": "Z", "И": "I", "Й": "Y", "К": "K", "Л": "L", "М": "M", "Н": "N", "О": "O",
+    "П": "P", "Р": "R", "С": "S", "Т": "T", "У": "U", "Ф": "F", "Х": "KH", "Ц": "TS",
+    "Ч": "CH", "Ш": "SH", "Щ": "SHCH", "Ъ": "", "Ы": "Y", "Ь": "", "Э": "E", "Ю": "YU",
+    "Я": "YA", "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+    "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m", "н": "n",
+    "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "kh",
+    "ц": "ts", "ч": "ch", "ш": "sh", "щ": "shch", "ъ": "", "ы": "y", "ь": "", "э": "e",
+    "ю": "yu", "я": "ya", "!": "_", "@": "_", "#": "_", "$": "_", "%": "_", "^": "_", "&": "_",
+    "*": "_", "(": "_", ")": "_", "+": "_", "=": "_", "{": "_", "}": "_", "[": "_", "]": "_", ";": "_",
+    ":": "_", ",": "_", "<": "_", ">": "_", "?": "_", "/": "_", "\\": "_", "|": "_", "№": "_", " ": "_",
+}
+path = sys.argv[1]
 
 
-IMAGES_TYPE = ['jpeg', 'png', 'jpg', 'svg']
-VIDEO_TYPE = ['avi', 'mp4', 'mov', 'mkv']
-AUDIO_TYPE = ['mp3', 'ogg', 'wav', 'amr']
-DOCUMENTS_TYPE = ['doc', 'docx', 'txt', 'pdf', 'xlsx', 'pptx']
-ARCHIVES_TYPE = ['zip', 'gz', 'tar']
-FOLDER_EXEPTION = ['image', 'video', 'audio', 'documents', 'archives']
-
-CYRILLIC = "абвгдеёжзийклмнопрстуфхцчшщъыьэюяєіїґ"
-LATIN = ("a", "b", "v", "g", "d", "e", "e", "j", "z", "i", "j", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u",
-         "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "u", "ja", "je", "ji", "g")
-
-TRANS = {}
-
-for c, l in zip(CYRILLIC, LATIN):
-    TRANS[ord(c)] = l
-    TRANS[ord(c.upper())] = l.upper()
-
-
-def translate_file(name):
-    return name.translate(TRANS)
-
-class SortingThread(Thread):
-
-    def __init__(self, files, base_folder,  root, ):
-        super().__init__()
-        self.files = files
-        self.base_folder = base_folder
-        self.root = root
-
-    def run(self):
-        
-        for name in self.files:
-
-                file_name = name.split('.')
-                new_file_name = normalize(file_name[0], file_name[1])
-                
-                if file_name[1] in IMAGES_TYPE:
-                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[0], self.root, name, new_file_name)
-                elif file_name[1] in VIDEO_TYPE:
-                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[1], self.root, name, new_file_name)
-                elif file_name[1] in AUDIO_TYPE:
-                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[2], self.root, name, new_file_name)
-                elif file_name[1] in DOCUMENTS_TYPE:
-                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[3], self.root, name, new_file_name)
-                elif file_name[1] in ARCHIVES_TYPE:
-                    create_folder_and_replace_file(self.base_folder, FOLDER_EXEPTION[4], self.root, name, new_file_name)
-                    
-                    shutil.unpack_archive(f'{self.base_folder}\\archives\\{new_file_name}',
-                                        f'{self.base_folder}\\archives\\{file_name[0]}')
-                    os.remove(f'{self.base_folder}\\{FOLDER_EXEPTION[4]}\\{new_file_name}')
-                else:
-                    create_folder_and_replace_file(self.base_folder, 'other', self.root, name, new_file_name)
- 
-
-def main(base_folder):
-    for root, dirs, files in os.walk(base_folder):
-        if os.path.basename(root) in FOLDER_EXEPTION:
-            return
+#Creating all directories with their paths
+path_for_sorting = os.path.join(path,'Sorted/')
+os.makedirs(path_for_sorting)
+dir_path_pics = os.path.join(path_for_sorting + 'Pictures')
+os.makedirs(dir_path_pics)
+dir_path_vid = os.path.join(path_for_sorting + 'Video')
+os.makedirs(dir_path_vid)
+dir_path_docs = os.path.join(path_for_sorting + 'Documents')
+os.makedirs(dir_path_docs)
+dir_path_aud = os.path.join(path_for_sorting + 'Audio')
+os.makedirs(dir_path_aud)
+dir_path_arch = os.path.join(path_for_sorting + 'Archives')
+os.makedirs(dir_path_arch)
+dir_path_other = os.path.join(path_for_sorting + 'Other')
+os.makedirs(dir_path_other)
+      
+#Function to normalize name of file
+def normalize(name,format):
+    english_name = ""
+    for char in name:
+        if char in transliteration_table:
+            english_name += transliteration_table[char]
         else:
-            SortingThread(files, base_folder, root).start()
+            english_name += char
+    new_name = english_name + format
+    return new_name
+      
+#Function to raname files
+def renaming(path):
+    for item in os.listdir(path):
+        if os.path.isdir(os.path.join(path, item)) and item == 'Sorted/':
+            continue
+        elif os.path.isdir(os.path.join(path, item)):
+            renaming(os.path.join(path, item))
+        elif os.path.isfile(os.path.join(path, item)) and item =='.DS_Store':
+            continue
+        elif os.path.isfile(os.path.join(path, item)):
+            name, format = os.path.splitext(item)
+            if any(ord(char) > 127 for char in name):
+                old_file_path = os.path.join(path, item)
+                file_path = os.path.join(path, normalize(name,format))
+                os.rename(old_file_path, file_path)    
+            else:
+                file_path = os.path.join(path, item)
+    return "Renaming was done"            
 
-    delete_empty_folder(base_folder)
-
-def delete_empty_folder(base_folder):
-    try:
-        for root, dirs, files in os.walk(base_folder):
-            if os.listdir(root):
+#Function to sort files                
+def sorting(path):
+    for item in os.listdir(path):
+        if os.path.isdir(os.path.join(path, item)) and item == 'Sorted/':
+            continue
+        elif os.path.isdir(os.path.join(path, item)):
+            sorting(os.path.join(path, item))
+        elif os.path.isfile(os.path.join(path, item)) and item =='.DS_Store':
+            continue
+        elif os.path.isfile(os.path.join(path, item)):
+            name, format = os.path.splitext(item)   
+            file_path = os.path.join(path, item)            
+            if format.upper() in pictures:
+                shutil.move(file_path, dir_path_pics)
+            elif format.upper() in videos:
+                shutil.move(file_path, dir_path_vid)
+            elif format.upper() in documents:
+                shutil.move(file_path, dir_path_docs)
+            elif format.upper() in audio:
+                shutil.move(file_path, dir_path_aud)
+            elif format.upper() in archives:
+                shutil.unpack_archive(file_path, dir_path_arch + '/' + name)
+                os.remove(file_path)
+            elif format == '.DS_Store': #Need to ignore my system dir 
                 continue
             else:
-                os.rmdir(root)
-        return delete_empty_folder(base_folder)
-    except RecursionError:
-        return
+                shutil.move(file_path, dir_path_other)
+    return "Sorting was done"
 
-def create_folder_and_replace_file(base_folder, folder_name, root, name, new_file_name):
-    if os.path.isdir(f'{base_folder}\\{folder_name}'):
-        os.replace(f'{root}\\{name}', f'{base_folder}\\{folder_name}\\{new_file_name}')
-    else:
-        os.mkdir(f'{base_folder}\\{folder_name}')
-        os.replace(f'{root}\\{name}', f'{base_folder}\\{folder_name}\\{new_file_name}')
-
-def normalize(file_name, file_extension):
-    chars = ' ()!?,./|@^%&*'
-    tran_file_name = translate_file(file_name)
-    for sym in chars:
-        tran_file_name = tran_file_name.replace(sym, '_')
-    return f'{tran_file_name}.{file_extension}'
-
-def main_entry_point():
-    if len(sys.argv) == 1:
-        print(f'Clean this folder => {os.getcwd()} ?')
-        answ = input('Y/n =>  ').lower()
-        if answ == 'y':
-            main(os.getcwd())
-        else:
-            print('Try again ...')
-    else:
-        print(f'Start clean this folder => {sys.argv[1]}')
-        main(sys.argv[1])
-
-if __name__ == '__main__':
-    main_entry_point()
+# Function to delete empty dirs
+def delete_empty_directories(path):
+    
+    sorted_dir = path_for_sorting
+    
+    for dir_name in os.listdir(path):
+        dir_path = os.path.join(path, dir_name)
+        
+        if dir_path == sorted_dir:
+            continue
+        
+        if os.path.isdir(dir_path):
+            delete_empty_directories(dir_path)
+        
+        if not os.listdir(dir_path) or os.listdir(dir) == ['.DS_Store']:
+            os.rmdir(dir_path)
+    
+#Full working script
+def full_sort(path):
+    renaming(path)
+    sorting(path)
+    delete_empty_directories(path)
+    return 'Everything was done'
+      
+                    
+print(full_sort(path))
