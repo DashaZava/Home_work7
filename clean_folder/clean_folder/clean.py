@@ -1,125 +1,184 @@
-import sys, os, shutil
+import re
+from pathlib import Path
+import sys
+import shutil
 
-pictures = ['.JPEG', '.PNG', '.JPG', '.SVG']
-videos =['.AVI', '.MP4', '.MOV', '.MKV']
-documents = ['.DOC', '.DOCX', '.TXT', '.PDF', '.XLSX', '.PPTX']
-audio = ['.MP3', '.OGG', '.WAV', '.AMR']
-archives = ['.ZIP', '.GZ', '.TAR']
+CYRILLIC_SYMBOLS = "абвгдеёжзийклмнопрстуфхцчшщъыьэюяєіїґ"
+TRANSLATION = ("a", "b", "v", "g", "d", "e", "e", "j", "z", "i", "j", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u",
+               "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "ya", "je", "i", "ji", "g")
 
-transliteration_table = {
-    "А": "A", "Б": "B", "В": "V", "Г": "G", "Д": "D", "Е": "E", "Ё": "E", "Ж": "ZH",
-    "З": "Z", "И": "I", "Й": "Y", "К": "K", "Л": "L", "М": "M", "Н": "N", "О": "O",
-    "П": "P", "Р": "R", "С": "S", "Т": "T", "У": "U", "Ф": "F", "Х": "KH", "Ц": "TS",
-    "Ч": "CH", "Ш": "SH", "Щ": "SHCH", "Ъ": "", "Ы": "Y", "Ь": "", "Э": "E", "Ю": "YU",
-    "Я": "YA", "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
-    "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m", "н": "n",
-    "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "kh",
-    "ц": "ts", "ч": "ch", "ш": "sh", "щ": "shch", "ъ": "", "ы": "y", "ь": "", "э": "e",
-    "ю": "yu", "я": "ya", "!": "_", "@": "_", "#": "_", "$": "_", "%": "_", "^": "_", "&": "_",
-    "*": "_", "(": "_", ")": "_", "+": "_", "=": "_", "{": "_", "}": "_", "[": "_", "]": "_", ";": "_",
-    ":": "_", ",": "_", "<": "_", ">": "_", "?": "_", "/": "_", "\\": "_", "|": "_", "№": "_", " ": "_",
-}
-path = sys.argv[1]
+TRANS = {}
 
+for c, l in zip(CYRILLIC_SYMBOLS, TRANSLATION):
+    TRANS[ord(c)] = l
+    TRANS[ord(c.upper())] = l.upper()
 
-#Creating all directories with their paths
-path_for_sorting = os.path.join(path,'Sorted/')
-os.makedirs(path_for_sorting)
-dir_path_pics = os.path.join(path_for_sorting + 'Pictures')
-os.makedirs(dir_path_pics)
-dir_path_vid = os.path.join(path_for_sorting + 'Video')
-os.makedirs(dir_path_vid)
-dir_path_docs = os.path.join(path_for_sorting + 'Documents')
-os.makedirs(dir_path_docs)
-dir_path_aud = os.path.join(path_for_sorting + 'Audio')
-os.makedirs(dir_path_aud)
-dir_path_arch = os.path.join(path_for_sorting + 'Archives')
-os.makedirs(dir_path_arch)
-dir_path_other = os.path.join(path_for_sorting + 'Other')
-os.makedirs(dir_path_other)
-      
-#Function to normalize name of file
-def normalize(name,format):
-    english_name = ""
-    for char in name:
-        if char in transliteration_table:
-            english_name += transliteration_table[char]
+registered_extensions = {'IMAGES': ['JPEG', 'PNG', 'JPG', 'SVG'],
+                         'VIDEOS': ['AVI', 'MP4', 'MOV', 'MKV'],
+                         'DOCUMENTS': ['DOC', 'DOCX', 'TXT', 'PDF', 'XLSX', 'PPTX'],
+                         'MUSIC': ['MP3', 'OGG', 'WAV', 'AMR'],
+                         'ARCHIVES': ['ZIP', 'GZ', 'TAR'],
+                         'OTHERS': []}
+unknown_extensions = list()
+extensions = list()
+image_files_list = list()
+video_files_list = list()
+document_files_list = list()
+music_files_list = list()
+archive_files_list = list()
+other_files_list = list()
+
+def get_extensions(file_name):
+    """
+    Return extension of the file without dot
+    :param path: user path -> Path
+    :return: str
+    """
+    return Path(file_name).suffix[1:].upper()
+
+def normalize(name):
+    """
+    Normalize file name by transliterating to cyrillic, replacing invalid symbols to "_"
+    :param name: user name -> str
+    :return: str
+    """
+    name, extension = name.split('.')
+    new_name = name.translate(TRANS)
+    new_name = re.sub(r'\W', "_", new_name)
+    return f"{new_name}.{extension}"
+
+def hande_file(file_name, folder, dist):
+    """
+    Move file in param file_name to the target folder = folder / dist
+    :param file_name: user Path -> Path
+           folder: user Path -> Path
+           dist: user name -> str
+    :return: None
+    """
+    target_folder = folder / dist
+    target_folder.mkdir(exist_ok=True)
+    file_name.rename(target_folder/normalize(file_name.name))
+
+def handle_archive(path, folder, dist):
+    """
+    Unpack the archive  file in param path to the target folder = folder / dist
+    :param path: user Path -> Path
+           folder: user Path -> Path
+           dist: user name -> str
+    :return: None
+    """
+    target_folder = folder / dist
+    target_folder.mkdir(exist_ok=True)
+
+    norm_name = normalize(path.name).replace(".zip", '').replace(".gz", '').replace(".tar", '')
+
+    archive_folder = target_folder / norm_name
+    archive_folder.mkdir(exist_ok=True)
+
+    try:
+        shutil.unpack_archive(str(path.resolve()), archive_folder)
+    except shutil.ReadError:
+        archive_folder.rmdir()
+        return
+    except FileNotFoundError:
+        archive_folder.rmdir()
+        return
+    path.unlink()
+
+def scan(folder):
+    """
+    Scan all folders and files in folder and sort by extensions
+    :param folder: user path -> Path()
+    :return: unknown_extensions -> list,
+            extensions -> list,
+            image_files_list -> list,
+            video_files_list -> list,
+            document_files_list -> list,
+            music_files_list -> list,
+            archive_files_list -> list,
+            other_files_list -> list,
+    """
+    for item in folder.iterdir():
+        if item.is_dir():
+            if item.name not in registered_extensions.keys():
+                scan(item)
+            continue
+
+        extension = get_extensions(file_name=item.name)
+        new_name = folder/item.name
+        if extension in registered_extensions['IMAGES']:
+            image_files_list.append(new_name)
+            extensions.append(extension)
+        elif extension in registered_extensions['VIDEOS']:
+            video_files_list.append(new_name)
+            extensions.append(extension)
+        elif extension in registered_extensions['DOCUMENTS']:
+            document_files_list.append(new_name)
+            extensions.append(extension)
+        elif extension in registered_extensions['MUSIC']:
+            music_files_list.append(new_name)
+            extensions.append(extension)
+        elif extension in registered_extensions['ARCHIVES']:
+            archive_files_list.append(new_name)
+            extensions.append(extension)
         else:
-            english_name += char
-    new_name = english_name + format
-    return new_name
-      
-#Function to raname files
-def renaming(path):
-    for item in os.listdir(path):
-        if os.path.isdir(os.path.join(path, item)) and item == 'Sorted/':
-            continue
-        elif os.path.isdir(os.path.join(path, item)):
-            renaming(os.path.join(path, item))
-        elif os.path.isfile(os.path.join(path, item)) and item =='.DS_Store':
-            continue
-        elif os.path.isfile(os.path.join(path, item)):
-            name, format = os.path.splitext(item)
-            if any(ord(char) > 127 for char in name):
-                old_file_path = os.path.join(path, item)
-                file_path = os.path.join(path, normalize(name,format))
-                os.rename(old_file_path, file_path)    
-            else:
-                file_path = os.path.join(path, item)
-    return "Renaming was done"            
+            other_files_list.append(new_name)
+            unknown_extensions.append(extension)
 
-#Function to sort files                
-def sorting(path):
-    for item in os.listdir(path):
-        if os.path.isdir(os.path.join(path, item)) and item == 'Sorted/':
-            continue
-        elif os.path.isdir(os.path.join(path, item)):
-            sorting(os.path.join(path, item))
-        elif os.path.isfile(os.path.join(path, item)) and item =='.DS_Store':
-            continue
-        elif os.path.isfile(os.path.join(path, item)):
-            name, format = os.path.splitext(item)   
-            file_path = os.path.join(path, item)            
-            if format.upper() in pictures:
-                shutil.move(file_path, dir_path_pics)
-            elif format.upper() in videos:
-                shutil.move(file_path, dir_path_vid)
-            elif format.upper() in documents:
-                shutil.move(file_path, dir_path_docs)
-            elif format.upper() in audio:
-                shutil.move(file_path, dir_path_aud)
-            elif format.upper() in archives:
-                shutil.unpack_archive(file_path, dir_path_arch + '/' + name)
-                os.remove(file_path)
-            elif format == '.DS_Store': #Need to ignore my system dir 
-                continue
-            else:
-                shutil.move(file_path, dir_path_other)
-    return "Sorting was done"
+def group_files(folder):
+    """
+    Group files in param folder
+    :param folder: user Path -> Path
+    :return: None
+    """
+    scan(Path(folder))
 
-# Function to delete empty dirs
-def delete_empty_directories(path):
-    
-    sorted_dir = path_for_sorting
-    
-    for dir_name in os.listdir(path):
-        dir_path = os.path.join(path, dir_name)
-        
-        if dir_path == sorted_dir:
-            continue
-        
-        if os.path.isdir(dir_path):
-            delete_empty_directories(dir_path)
-        
-        if not os.listdir(dir_path) or os.listdir(dir) == ['.DS_Store']:
-            os.rmdir(dir_path)
-    
-#Full working script
-def full_sort(path):
-    renaming(path)
-    sorting(path)
-    delete_empty_directories(path)
-    return 'Everything was done'
-      
-                    
-print(full_sort(path))
+    for file in image_files_list:
+        hande_file(file, folder, 'IMAGES')
+    for file in video_files_list:
+        hande_file(file, folder, 'VIDEOS')
+    for file in document_files_list:
+        hande_file(file, folder, 'DOCUMENTS')
+    for file in music_files_list:
+        hande_file(file, folder, 'MUSIC')
+    for file in archive_files_list:
+        handle_archive(file, folder, "ARCHIVE")
+    for file in other_files_list:
+        target_folder = folder / 'OTHERS'
+        target_folder.mkdir(exist_ok=True)
+        file.rename(target_folder / file.name)
+
+def remove_empty_folders(path):
+    """
+    Remove empty folders
+    :param path: user path -> Path
+    :return: None
+    """
+    for item in path.iterdir():
+        if item.is_dir():
+            remove_empty_folders(item)
+            try:
+                item.rmdir()
+            except OSError:
+                pass
+
+
+def main():
+    path = sys.argv[1]
+    print(f"Start in {path}")
+
+    group_files(Path(path))
+
+    remove_empty_folders(Path(path))
+
+    print(f"Image files: {image_files_list}\n")
+    print(f"Video files: {video_files_list}\n")
+    print(f"Document files: {document_files_list}\n")
+    print(f"Music files: {music_files_list}\n")
+    print(f"Archive files: {archive_files_list}\n")
+    print(f"Unknown files: {other_files_list}\n")
+    print(f"All extensions: {set(extensions)}\n")
+    print(f"Unknown extensions: {set(unknown_extensions)}\n")
+
+if __name__ == '__main__':
+    main()
