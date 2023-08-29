@@ -2,14 +2,13 @@ from setuptools import setup
 
 setup(
     name='clean_folder',
-    version='0.1',
+    version='1',
     description='Clean folder program by Python',
-    author='DashaZava',
-    author_email='Dashss_kirik49@ukr.net',
-    url='https://github.com/DashaZava/Home_work7',
+    author='yulyan407',
+    author_email='yu_lyan@ukr.net',
+    url='https://github.com/yulyan407/GoIT_HomeWork_7',
     license='MIT',
     packages=['clean_folder'],
-    entry_points={
-        'console_scripts': ['clean-folder = clean_folder.clean:main']
-    }
+    include_package_data=True,
+    entry_points={'console_scripts': ['clean-folder = clean_folder.clean:main']}
 )
